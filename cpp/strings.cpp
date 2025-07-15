@@ -1,5 +1,7 @@
 // cpp/strings.cpp
 #include<iostream>
+#include<string>
+std::string name = "John";
 
 int main(){
     const char* name = "John";
