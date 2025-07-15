@@ -72,6 +72,40 @@ We will include parallel examples for:
 
 ---
 
+## Why C++ is Faster than Python
+
+### 1. Compiled vs. Interpreted
+- **C++** is a compiled language. It is translated into machine code before running, allowing the CPU to execute instructions very efficiently.
+- **Python** is an interpreted language. The Python interpreter executes the code at runtime, adding overhead for parsing and executing each instruction.
+
+### 2. Static vs. Dynamic Typing
+- **C++** uses static typing: variable types are known at compile time, enabling better optimization.
+- **Python** uses dynamic typing: variable types are determined at runtime, which introduces extra overhead.
+
+### 3. Memory Management
+- **C++** provides manual control over memory allocation and deallocation, allowing fine-tuned performance optimizations.
+- **Python** uses automatic garbage collection, which adds runtime overhead.
+
+### 4. Low-Level Access
+- **C++** allows direct access to hardware and system resources like pointers and SIMD instructions.
+- **Python** abstracts low-level details, focusing on ease of use and safety.
+
+### 5. Optimization
+- C++ compilers perform extensive compile-time optimizations like inlining and loop unrolling.
+- Python relies on interpreter optimizations and often requires external tools (e.g., PyPy, Cython) for speed improvements.
+
+### Summary
+
+| Feature            | C++                       | Python                    |
+|--------------------|---------------------------|---------------------------|
+| Execution          | Compiled to machine code  | Interpreted at runtime    |
+| Typing             | Static (compile-time)     | Dynamic (runtime)         |
+| Memory management  | Manual                    | Automatic (garbage collection) |
+| Low-level control  | Yes                       | Limited                   |
+| Speed              | Generally much faster     | Slower due to overhead    |
+
+---
+
 ## 🤝 Contributing
 
 Want to add more concepts or fix something?
