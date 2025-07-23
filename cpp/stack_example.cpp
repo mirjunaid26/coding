@@ -2,15 +2,15 @@
 #include <stack>
 
 int main() {
-    std::stack<int> s;
+    std::stack<int> stack;
 
-    // Push 7 elemets 
-    for (int i=1; i<=7; i++) {
-        s.push(i);
+    for (int i = 1; i <= 7; i++) {
+        stack.push(i);
         std::cout << "Pushed: " << i << std::endl;
-    }
+            }
 
-    std::cout << "\nStack size after pushing: " << s.size() << "\n";
-
+    std::cout << "Stack after pushing element: " << stack.size() << std::endl;
+    
     return 0;
+
 }
