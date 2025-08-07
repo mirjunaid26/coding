@@ -30,3 +30,27 @@ print(f"Ones Tensor: \n {x_ones} \n")
 x_rand = torch.rand_like(x_data, dtype=torch.float) # overrides the datatype of x_data
 print(f"Random tensor: \n {x_rand} \n")
 
+# shape
+shape = (2, 3)
+
+rand_tensor = torch.rand(shape)
+print(f"Random Tensor: \n {rand_tensor} \n")
+print("----------")
+
+ones_tensor = torch.ones(shape)
+print(f"Ones Tensor: \n {ones_tensor} \n")
+print("----------")
+
+zeros_tensor = torch.zeros(shape)
+print(f"Zeros Tensor: \n {zeros_tensor}")
+print("----------")
+
+flat_tensor = ones_tensor.view(-1) # flatten the tensor / only applicable to tensors
+print(flat_tensor)
+print("----------")
+
+#flat_tensor2 = np_array.view(-1) # cannot flatten a numpy array
+#print(flat_tensor2)
+
+flat_tensor2 = np_array.reshape(-1) # flatten the numpy array
+print(flat_tensor2)
