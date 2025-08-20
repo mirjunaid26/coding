@@ -2,6 +2,20 @@
 
 This guide provides a quickstart for running distributed PyTorch training using DistributedDataParallel (DDP) on the amplitUDE HPC system.
 
+## Table of Contents
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Running the DDP Example](#running-the-ddp-example)
+  - [Interactive Session](#1-interactive-session-for-testing)
+  - [Batch Job Submission](#2-batch-job-submission)
+- [Key Features](#key-features-of-the-ddp-implementation)
+- [Code Examples](#code-examples)
+- [Monitoring and Debugging](#monitoring-and-debugging)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Additional Resources](#additional-resources)
+- [Support](#support)
+
 ## Prerequisites
 
 - Access to amplitUDE HPC cluster
@@ -109,6 +123,125 @@ sbatch submit_ddp.sh
 ...
 ```
 
+## Code Examples
+
+### 1. Basic DDP Setup
+```python
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+```
+
+### 2. Model Wrapping
+```python
+def main(rank, world_size):
+    setup(rank, world_size)
+    
+    # Create model and move to GPU
+    model = NeuralNetwork().to(rank)
+    ddp_model = DDP(model, device_ids=[rank])
+    
+    # Create optimizer after DDP wrapper
+    optimizer = torch.optim.Adam(ddp_model.parameters())
+    
+    # Training loop
+    for epoch in range(epochs):
+        for batch in dataloader:
+            inputs, labels = batch
+            inputs, labels = inputs.to(rank), labels.to(rank)
+            
+            optimizer.zero_grad()
+            outputs = ddp_model(inputs)
+            loss = F.cross_entropy(outputs, labels)
+            loss.backward()
+            optimizer.step()
+    
+    cleanup()
+```
+
+### 3. Distributed Data Loading
+```python
+from torch.utils.data.distributed import DistributedSampler
+
+def prepare_dataloader(dataset, batch_size):
+    sampler = DistributedSampler(
+        dataset,
+        num_replicas=dist.get_world_size(),
+        rank=dist.get_rank(),
+        shuffle=True
+    )
+    
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=4,
+        pin_memory=True
+    )
+```
+
+### 4. Saving and Loading Checkpoints
+```python
+def save_checkpoint(model, optimizer, epoch, filename):
+    if dist.get_rank() == 0:  # Only save from master process
+        checkpoint = {
+            'model_state_dict': model.module.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'epoch': epoch
+        }
+        torch.save(checkpoint, filename)
+
+def load_checkpoint(model, optimizer, filename):
+    checkpoint = torch.load(filename, map_location=f'cuda:{dist.get_rank()}')
+    model.module.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    return checkpoint['epoch']
+```
+
+### 5. Distributed Evaluation
+```python
+def evaluate(model, dataloader, device):
+    model.eval()
+    total = 0
+    correct = 0
+    
+    with torch.no_grad():
+        for inputs, labels in dataloader:
+            inputs, labels = inputs.to(device), labels.to(device)
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    
+    # Aggregate results across all processes
+    total = torch.tensor(total, device=device)
+    correct = torch.tensor(correct, device=device)
+    
+    dist.all_reduce(total, op=dist.ReduceOp.SUM)
+    dist.all_reduce(correct, op=dist.ReduceOp.SUM)
+    
+    if dist.get_rank() == 0:
+        accuracy = 100 * correct / total
+        print(f'Accuracy: {accuracy:.2f}%')
+```
+
+### 6. Cleaning Up
+```python
+def cleanup():
+    dist.destroy_process_group()
+
+if __name__ == "__main__":
+    import torch.multiprocessing as mp
+    
+    world_size = 2  # Number of GPUs
+    mp.spawn(main, args=(world_size,), nprocs=world_size, join=True)
+```
+
 ## Additional Resources
 
 - [PyTorch DDP Documentation](https://pytorch.org/docs/stable/notes/ddp.html)
@@ -117,5 +250,5 @@ sbatch submit_ddp.sh
 
 ## Support
 
-For issues with the HPC system, contact: hpc-support@amplitUDE.edu
+For issues with the HPC system, contact: hpc-support@amplitUDE.edu  
 For code-related questions, open an issue in this repository.
