@@ -1,4 +1,4 @@
-# PyTorch DDP Quickstart for amplitUDE HPC
+# PyTorch DDP: A Quickstart Guide
 
 This guide provides a quickstart for running distributed PyTorch training using DistributedDataParallel (DDP) on the amplitUDE HPC system.
 
