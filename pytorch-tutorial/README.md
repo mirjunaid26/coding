@@ -41,6 +41,7 @@ PyTorch DDP enables efficient multi-GPU training by:
 ├── requirements.txt   # Python dependencies
 └── checkpoints/       # Directory for model checkpoints
 └── logs/              # Training logs and TensorBoard files
+└── README.md          # This file
 ```
 
 ## Dependencies
