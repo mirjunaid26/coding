@@ -17,13 +17,13 @@ source ~/.bashrc
 conda activate py-ddp
 
 # Get the directory where this script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+SCRIPT_DIR="/lustre/scratch/cbm107c-ai_llm/gpu_performance_suite/coding/pytorch-tutorial"
 cd "$SCRIPT_DIR"
 
 # Check if data path is provided, otherwise use default sample data
-DATA_PATH="${1:-$SCRIPT_DIR/data/sample_data.txt}"
+DATA_PATH="${1:-$SCRIPT_DIR/data/shakespeare/train.txt}"
 
-# Create output directories
+# Create output directories in the working directory
 mkdir -p "$SCRIPT_DIR/logs"
 mkdir -p "$SCRIPT_DIR/checkpoints"
 
@@ -39,7 +39,8 @@ if [ ! -f "$DATA_PATH" ]; then
     echo "Error: Data file not found at $DATA_PATH"
     echo "Available files in data directory:"
     ls -lh "$SCRIPT_DIR/data/" 2>/dev/null || echo "No data directory found"
-    echo -e "\nPlease run 'python create_sample_data.py' to generate sample data or provide a valid data path"
+    echo -e "\nPlease run 'python download_shakespeare.py' to download the Shakespeare dataset"
+    echo "or provide a valid data path as an argument to this script."
     exit 1
 fi
 
