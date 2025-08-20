@@ -8,6 +8,7 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         assert d_model % n_head == 0
         self.n_head = n_head
+        self.d_model = d_model  
         self.d_k = d_model // n_head
         
         # Key, Query, Value projections
@@ -25,7 +26,7 @@ class MultiHeadAttention(nn.Module):
         
         # Calculate query, key, values for all heads
         qkv = self.qkv(x)
-        q, k, v = qkv.split(self.d_model * self.n_head, dim=2)
+        q, k, v = qkv.split(self.d_model, dim=2)  
         
         # Reshape to (B, n_head, T, d_k)
         q = q.view(B, T, self.n_head, self.d_k).transpose(1, 2)
