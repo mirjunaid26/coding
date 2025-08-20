@@ -23,8 +23,8 @@ def train(rank, world_size, args):
     print(f"Running DDP on rank {rank}.")
     setup(rank, world_size)
     
-    # Verify data file exists
-    if rank == 0:  # Only check on rank 0 to avoid race conditions
+    # Verify data file exists (only on rank 0 to avoid race conditions)
+    if rank == 0:
         if not os.path.isfile(args.data_path):
             print(f"Error: Data file not found at {args.data_path}")
             # Signal other processes to exit
@@ -35,23 +35,12 @@ def train(rank, world_size, args):
     if world_size > 1:
         dist.barrier()  # Wait for rank 0 to check the file
     
-    # Create model and move to GPU
-    model = GPT(
-        vocab_size=args.vocab_size,
-        d_model=args.d_model,
-        n_layer=args.n_layer,
-        n_head=args.n_head,
-        block_size=args.block_size
-    ).to(rank)
-    
-    # Wrap model with DDP
-    model = DDP(model, device_ids=[rank])
-    
-    # Create optimizer
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
-    
     try:
-        # Create dataloader
+        # Create dataloader first to validate data and get vocab size
+        if rank == 0:
+            print(f"Loading data from: {args.data_path}")
+            print(f"File size: {os.path.getsize(args.data_path) / (1024*1024):.2f} MB")
+        
         dataloader, dataset = get_dataloader(
             args.data_path,
             batch_size=args.batch_size,
@@ -59,15 +48,36 @@ def train(rank, world_size, args):
             num_workers=4
         )
         
-        # Update vocab_size from the actual dataset
+        # Update vocab_size from the actual dataset if available
         if hasattr(dataset, 'vocab_size'):
             args.vocab_size = dataset.vocab_size
             if rank == 0:
                 print(f"Using vocab size: {args.vocab_size}")
+        else:
+            if rank == 0:
+                print(f"Using default vocab size: {args.vocab_size}")
+        
+        # Create model and move to GPU
+        model = GPT(
+            vocab_size=args.vocab_size,
+            d_model=args.d_model,
+            n_layer=args.n_layer,
+            n_head=args.n_head,
+            block_size=args.block_size
+        ).to(rank)
+        
+        # Wrap model with DDP
+        if world_size > 1:
+            model = DDP(model, device_ids=[rank])
+        
+        # Create optimizer
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
         
         # Create TensorBoard writer (only on rank 0)
         if rank == 0:
+            os.makedirs(args.log_dir, exist_ok=True)
             writer = SummaryWriter(log_dir=args.log_dir)
+            print(f"Model parameters: {sum(p.numel() for p in model.parameters()) / 1e6:.2f}M")
         
         # Training loop
         model.train()
@@ -85,6 +95,7 @@ def train(rank, world_size, args):
                 # Backward pass and optimize
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
                 
                 # Log metrics
@@ -92,20 +103,27 @@ def train(rank, world_size, args):
                 
                 if step % args.log_interval == 0 and rank == 0:
                     avg_loss = total_loss / args.log_interval
+                    elapsed = time.time() - start_time
                     print(f"Step {step:5d} | Loss: {avg_loss:.4f} | "
-                          f"Time: {(time.time() - start_time):.2f}s")
-                    writer.add_scalar('train/loss', avg_loss, step)
+                          f"Time: {elapsed:.2f}s | "
+                          f"Samples/s: {args.log_interval * args.batch_size * world_size / elapsed:.1f}")
+                    
+                    if writer is not None:
+                        writer.add_scalar('train/loss', avg_loss, step)
+                        writer.add_scalar('train/lr', optimizer.param_groups[0]['lr'], step)
+                    
                     total_loss = 0.0
+                    start_time = time.time()
                 
                 # Save checkpoint
                 if step % args.save_interval == 0 and rank == 0:
+                    os.makedirs(args.save_dir, exist_ok=True)
                     checkpoint = {
-                        'model_state_dict': model.module.state_dict(),
+                        'model_state_dict': model.module.state_dict() if world_size > 1 else model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
                         'step': step,
                         'config': vars(args)
                     }
-                    os.makedirs(args.save_dir, exist_ok=True)
                     checkpoint_path = os.path.join(args.save_dir, f"ckpt_step_{step:06d}.pt")
                     torch.save(checkpoint, checkpoint_path)
                     print(f"Saved checkpoint at {checkpoint_path}")
@@ -143,7 +161,8 @@ if __name__ == "__main__":
     
     # Data parameters
     parser.add_argument('--data_path', type=str, required=True, help='path to training data')
-    parser.add_argument('--vocab_size', type=int, default=50000, help='vocabulary size (will be overridden by dataset if smaller)')
+    parser.add_argument('--vocab_size', type=int, default=50000, 
+                       help='vocabulary size (will be overridden by dataset if smaller)')
     
     # Output parameters
     parser.add_argument('--log_dir', type=str, default='logs', help='directory for TensorBoard logs')
